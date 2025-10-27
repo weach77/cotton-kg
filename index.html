@@ -1,90 +1,86 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-  <meta charset="utf-8">
-  <title>棉花知识图谱展示</title>
+  <meta charset="UTF-8">
+  <title>知识图谱可视化</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; background-color: #fafafa; }
+    body { margin: 0; overflow: hidden; }
     svg { width: 100vw; height: 100vh; }
-    text { font-family: "Microsoft YaHei"; font-size: 12px; pointer-events: none; }
   </style>
 </head>
 <body>
   <svg></svg>
-  <script src="https://cdn.staticfile.org/d3/7.8.5/d3.min.js"></script>
-  <script>
-    // 加载数据
-    d3.json("graph.json").then(function(graph) {
-      const svg = d3.select("svg");
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      const color = d3.scaleOrdinal(d3.schemeCategory10);
 
-      // ✅ 先定义 simulation
-      const simulation = d3.forceSimulation(graph.nodes)
-        .force("link", d3.forceLink(graph.links).id(d => d.id).distance(120))
-        .force("charge", d3.forceManyBody().strength(-250))
+  <script>
+    const svg = d3.select("svg");
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    // ✅ 提前声明 simulation
+    const simulation = d3.forceSimulation()
+        .force("link", d3.forceLink().id(d => d.id).distance(100))
+        .force("charge", d3.forceManyBody().strength(-200))
         .force("center", d3.forceCenter(width / 2, height / 2));
 
-      // ✅ 再创建图元素
-      const link = svg.append("g")
-        .selectAll("line")
-        .data(graph.links)
-        .join("line")
-        .attr("stroke", "#aaa");
+    // 加载本地 graph.json
+    d3.json("graph.json").then(graph => {
+      const link = svg.selectAll("line")
+          .data(graph.links)
+          .enter().append("line")
+          .attr("stroke", "#aaa");
 
-      const node = svg.append("g")
-        .selectAll("circle")
-        .data(graph.nodes)
-        .join("circle")
-        .attr("r", 6)
-        .attr("fill", d => color(d.group))
-        .call(d3.drag()
+      const node = svg.selectAll("circle")
+          .data(graph.nodes)
+          .enter().append("circle")
+          .attr("r", 6)
+          .attr("fill", "#4285f4")
+          .call(drag(simulation));
+
+      node.append("title").text(d => d.id);
+
+      simulation
+          .nodes(graph.nodes)
+          .on("tick", ticked);
+
+      simulation.force("link")
+          .links(graph.links);
+
+      function ticked() {
+        link
+            .attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y);
+        node
+            .attr("cx", d => d.x)
+            .attr("cy", d => d.y);
+      }
+    });
+
+    function drag(simulation) {
+      function dragstarted(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+      }
+
+      function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+      }
+
+      function dragended(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+      }
+
+      return d3.drag()
           .on("start", dragstarted)
           .on("drag", dragged)
-          .on("end", dragended));
-
-      const label = svg.append("g")
-        .selectAll("text")
-        .data(graph.nodes)
-        .join("text")
-        .text(d => d.id)
-        .attr("x", 8)
-        .attr("y", 3);
-
-      simulation.on("tick", () => {
-        link
-          .attr("x1", d => d.source.x)
-          .attr("y1", d => d.source.y)
-          .attr("x2", d => d.target.x)
-          .attr("y2", d => d.target.y);
-        node
-          .attr("cx", d => d.x)
-          .attr("cy", d => d.y);
-        label
-          .attr("x", d => d.x + 8)
-          .attr("y", d => d.y + 3);
-      });
-
-      // 拖拽函数
-      function dragstarted(event) {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
-        event.subject.fx = event.subject.x;
-        event.subject.fy = event.subject.y;
-      }
-      function dragged(event) {
-        event.subject.fx = event.x;
-        event.subject.fy = event.y;
-      }
-      function dragended(event) {
-        if (!event.active) simulation.alphaTarget(0);
-        event.subject.fx = null;
-        event.subject.fy = null;
-      }
-    }).catch(err => {
-      console.error("❌ 加载 graph.json 失败：", err);
-      alert("加载数据失败，请检查 graph.json 是否在根目录。");
-    });
+          .on("end", dragended);
+    }
   </script>
 </body>
 </html>
