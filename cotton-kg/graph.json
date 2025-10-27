@@ -1,0 +1,11 @@
+{
+  "nodes": [
+    {"id": "棉花", "group": 1},
+    {"id": "棉蚜", "group": 2},
+    {"id": "防治技术", "group": 3}
+  ],
+  "links": [
+    {"source": "棉花", "target": "棉蚜", "relation": "害虫"},
+    {"source": "棉蚜", "target": "防治技术", "relation": "控制"}
+  ]
+}
