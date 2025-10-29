@@ -108,8 +108,8 @@ function drawGraph(nodes, edges) {
 
     const options = {
         nodes: {
-            shape: 'dot', // 节点形状
-            size: 25,     // 节点大小
+            shape: 'dot',
+            size: 25,
             font: {
                 size: 14,
                 face: 'verdana'
@@ -117,7 +117,7 @@ function drawGraph(nodes, edges) {
             borderWidth: 2,
             chosen: {
                 node: function(values, id, selected, hovering) {
-                    values.color = 'rgba(255, 165, 0, 1)'; // 悬停或选中时变为橙色
+                    values.color = 'rgba(255, 165, 0, 1)';
                 }
             }
         },
@@ -126,42 +126,60 @@ function drawGraph(nodes, edges) {
             font: {
                 size: 12,
                 align: 'middle',
-                color: 'black' // 边标签颜色
+                color: 'black'
             },
             color: {
                 color: 'lightgray',
                 highlight: 'blue',
                 hover: 'blue'
             },
-            smooth: { // 边的平滑处理
-                type: 'dynamic' // 'continuous', 'dynamic', 'cubicBezier', 'discrete'
+            smooth: {
+                type: 'dynamic'
             },
             chosen: {
                 edge: function(values, id, selected, hovering) {
-                    values.color = 'blue'; // 悬停或选中时变为蓝色
-                    values.width = 3;     // 增加宽度
+                    values.color = 'blue';
+                    values.width = 3;
                 }
             }
         },
-        // --- 关键修改：禁用物理引擎 ---
+        // --- 关键修改：启用物理引擎进行初始布局计算 ---
         physics: {
-            enabled: false // 关闭物理模拟，使图谱保持静态
+            enabled: true, // 启用物理引擎
+            // 使用 forceAtlas2Based 模拟器，通常对分散布局效果较好
+            solver: 'forceAtlas2Based',
+            forceAtlas2Based: {
+                // 增加斥力，让节点互相推开
+                gravitationalConstant: -100, // 尝试更负的值 (如 -150, -200)
+                // 增加边的长度，让节点拉开
+                springLength: 250, // 尝试更大的值 (如 300)
+                // 调整中心引力，避免节点过于聚集在中心
+                centralGravity: 0.005, // 尝试更小 (如 0.001)
+                // 调整阻尼，让布局更快稳定
+                damping: 0.4,
+                // 强制避免节点重叠
+                avoidOverlap: 1
+            },
+            // 设置一个较短的稳定时间，让布局快速计算好
+            stabilization: {
+                enabled: true,
+                iterations: 1500, // 增加迭代次数以获得更好的分散效果
+                updateInterval: 25,
+                onlyDynamicEdges: false,
+                fit: true // 计算完成后适应屏幕
+            }
         },
-        // --- 优化交互 ---
         interaction: {
-            tooltipDelay: 200,               // 悬停提示框延迟
-            hideEdgesOnDrag: false,          // 拖拽时不隐藏边
-            selectConnectedEdges: true,      // 选择节点时高亮相关边
-            dragNodes: true,                 // 允许拖拽节点
-            dragView: true,                  // 允许拖拽整个视图
-            zoomView: true                   // 允许缩放视图
+            tooltipDelay: 200,
+            hideEdgesOnDrag: false,
+            selectConnectedEdges: true,
+            dragNodes: true,  // 计算完成后允许拖拽
+            dragView: true,
+            zoomView: true
         },
-        // --- 布局设置 ---
         layout: {
-            // 可以尝试不同的布局算法，improvedLayout 通常效果不错
-            improvedLayout: true,
-            // 如果你想强制一个初始的静态布局（例如随机、力导向等），可以设置
-            // randomSeed: 123 // 设置一个固定的随机种子，确保每次加载布局一致
+            improvedLayout: true, // 这个选项在启用物理引擎时也会被考虑
+            // randomSeed: 123 // 可选：固定随机种子
         }
     };
 
@@ -170,22 +188,28 @@ function drawGraph(nodes, edges) {
     // 存储 network 实例以便在函数间共享
     window.networkInstance = network;
 
+    // 监听物理引擎稳定事件，稳定后禁用物理引擎
+    network.on("stabilizationIterationsDone", function () {
+        console.log("Layout stabilization done. Disabling physics.");
+        network.setOptions({ physics: { enabled: false } }); // 稳定后关闭物理引擎
+    });
+
     // 添加点击节点时的详细信息展示 (可选)
     network.on("click", function (params) {
         if (params.nodes.length > 0) {
             const nodeId = params.nodes[0];
             const node = allNodes.get(nodeId);
             if (node) {
-                console.log("Clicked Node Details:", node); // 控制台输出详细信息
+                console.log("Clicked Node Details:", node);
                 // 可以在这里添加弹窗或侧边栏显示详细信息的逻辑
                 // alert(`节点详情:\n${node.title}`);
             }
         }
         if (params.edges.length > 0) {
             const edgeId = params.edges[0];
-            const edge = edges.find(e => e.id === edgeId); // 注意：这里假设边有id，vis.js通常会自动生成
+            const edge = edges.find(e => e.id === edgeId);
             if (edge) {
-                console.log("Clicked Edge Details:", edge); // 控制台输出详细信息
+                console.log("Clicked Edge Details:", edge);
                 // alert(`关系详情:\n${edge.title}`);
             }
         }
