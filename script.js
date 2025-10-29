@@ -143,66 +143,54 @@ function drawGraph(nodes, edges) {
                 }
             }
         },
-        // --- 关键修改：启用物理引擎进行初始布局计算 ---
         physics: {
             enabled: true, // 启用物理引擎
-            // 使用 forceAtlas2Based 模拟器，通常对分散布局效果较好
-            solver: 'forceAtlas2Based',
-            forceAtlas2Based: {
-                // 增加斥力，让节点互相推开
-                gravitationalConstant: -100, // 尝试更负的值 (如 -150, -200)
-                // 增加边的长度，让节点拉开
-                springLength: 250, // 尝试更大的值 (如 300)
-                // 调整中心引力，避免节点过于聚集在中心
-                centralGravity: 0.005, // 尝试更小 (如 0.001)
-                // 调整阻尼，让布局更快稳定
-                damping: 0.4,
-                // 强制避免节点重叠
-                avoidOverlap: 1
+            barnesHut: {
+                gravitationalConstant: -10000, // 增加斥力
+                centralGravity: 0.1,          // 降低向中心的引力
+                springLength: 300,            // 增加弹簧长度
+                springConstant: 0.04,         // 降低弹簧常数，使连接更松弛
+                damping: 0.09                 // 增加阻尼，减少震荡
             },
-            // 设置一个较短的稳定时间，让布局快速计算好
             stabilization: {
-                enabled: true,
-                iterations: 1500, // 增加迭代次数以获得更好的分散效果
-                updateInterval: 25,
-                onlyDynamicEdges: false,
-                fit: true // 计算完成后适应屏幕
+                iterations: 1000,             // 增加稳定迭代次数
+                fit: true
             }
         },
         interaction: {
             tooltipDelay: 200,
-            hideEdgesOnDrag: false,
+            hideEdgesOnDrag: true,          // 拖拽时隐藏边以提高性能
             selectConnectedEdges: true,
-            dragNodes: true,  // 计算完成后允许拖拽
+            dragNodes: true,
             dragView: true,
             zoomView: true
         },
         layout: {
-            improvedLayout: true, // 这个选项在启用物理引擎时也会被考虑
-            // randomSeed: 123 // 可选：固定随机种子
+            improvedLayout: true,
+            clusterThreshold: 150,          // 增加聚类阈值
+            randomSeed: undefined,          // 使每次布局随机
+            hierarchical: {
+                enabled: false              // 禁用层次布局
+            }
         }
     };
 
     const network = new vis.Network(container, data, options);
-
-    // 存储 network 实例以便在函数间共享
     window.networkInstance = network;
 
-    // 监听物理引擎稳定事件，稳定后禁用物理引擎
-    network.on("stabilizationIterationsDone", function () {
-        console.log("Layout stabilization done. Disabling physics.");
-        network.setOptions({ physics: { enabled: false } }); // 稳定后关闭物理引擎
+    // 等待布局稳定后，禁用物理引擎
+    network.once('stabilized', function() {
+        setTimeout(function() {
+            network.setOptions({ physics: { enabled: false } });
+        }, 1000); // 等待1秒后禁用物理引擎
     });
 
-    // 添加点击节点时的详细信息展示 (可选)
     network.on("click", function (params) {
         if (params.nodes.length > 0) {
             const nodeId = params.nodes[0];
             const node = allNodes.get(nodeId);
             if (node) {
                 console.log("Clicked Node Details:", node);
-                // 可以在这里添加弹窗或侧边栏显示详细信息的逻辑
-                // alert(`节点详情:\n${node.title}`);
             }
         }
         if (params.edges.length > 0) {
@@ -210,7 +198,6 @@ function drawGraph(nodes, edges) {
             const edge = edges.find(e => e.id === edgeId);
             if (edge) {
                 console.log("Clicked Edge Details:", edge);
-                // alert(`关系详情:\n${edge.title}`);
             }
         }
     });
