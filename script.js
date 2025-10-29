@@ -143,17 +143,25 @@ function drawGraph(nodes, edges) {
                 }
             }
         },
+        // --- 关键修改：禁用物理引擎 ---
         physics: {
-            enabled: true, // 默认启用物理引擎
-            stabilization: { iterations: 100 } // 初始稳定迭代次数
+            enabled: false // 关闭物理模拟，使图谱保持静态
         },
+        // --- 优化交互 ---
         interaction: {
-            tooltipDelay: 200,
-            hideEdgesOnDrag: false,
-            selectConnectedEdges: true // 选择节点时高亮相关边
+            tooltipDelay: 200,               // 悬停提示框延迟
+            hideEdgesOnDrag: false,          // 拖拽时不隐藏边
+            selectConnectedEdges: true,      // 选择节点时高亮相关边
+            dragNodes: true,                 // 允许拖拽节点
+            dragView: true,                  // 允许拖拽整个视图
+            zoomView: true                   // 允许缩放视图
         },
+        // --- 布局设置 ---
         layout: {
-            improvedLayout: true // 尝试改进布局算法
+            // 可以尝试不同的布局算法，improvedLayout 通常效果不错
+            improvedLayout: true,
+            // 如果你想强制一个初始的静态布局（例如随机、力导向等），可以设置
+            // randomSeed: 123 // 设置一个固定的随机种子，确保每次加载布局一致
         }
     };
 
@@ -170,7 +178,7 @@ function drawGraph(nodes, edges) {
             if (node) {
                 console.log("Clicked Node Details:", node); // 控制台输出详细信息
                 // 可以在这里添加弹窗或侧边栏显示详细信息的逻辑
-                alert(`节点详情:\n${node.title}`);
+                // alert(`节点详情:\n${node.title}`);
             }
         }
         if (params.edges.length > 0) {
@@ -178,7 +186,7 @@ function drawGraph(nodes, edges) {
             const edge = edges.find(e => e.id === edgeId); // 注意：这里假设边有id，vis.js通常会自动生成
             if (edge) {
                 console.log("Clicked Edge Details:", edge); // 控制台输出详细信息
-                alert(`关系详情:\n${edge.title}`);
+                // alert(`关系详情:\n${edge.title}`);
             }
         }
     });
@@ -191,24 +199,8 @@ function fitToScreen() {
     }
 }
 
-function togglePhysics() {
-    if (window.networkInstance) {
-        const currentPhysics = window.networkInstance.getOptions().physics;
-        window.networkInstance.setOptions({ physics: !currentPhysics });
-    }
-}
-
-// 切换物理引擎按钮状态显示 (可选，需要HTML配合)
-let physicsEnabled = true;
-function togglePhysics() {
-    if (window.networkInstance) {
-        physicsEnabled = !physicsEnabled;
-        window.networkInstance.setOptions({ physics: physicsEnabled });
-        document.getElementById('physicsToggleBtn').textContent = physicsEnabled ? '关闭物理引擎' : '开启物理引擎';
-    }
-}
-
 // 页面加载完成后初始化按钮文本
 window.addEventListener('load', function() {
-    document.getElementById('physicsToggleBtn').textContent = physicsEnabled ? '关闭物理引擎' : '开启物理引擎';
+    // 如果HTML中有按钮需要初始状态，可以在这里设置
+    // 例如，如果启用了物理引擎的按钮，这里可以隐藏或禁用
 });
