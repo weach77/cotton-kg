@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>知识图谱可视化</title>
+    <!-- 引入 vis-network CSS 和 JS -->
+    <link rel="stylesheet" href="https://unpkg.com/vis-network/styles/vis-network.min.css">
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+        }
+        #mynetwork {
+            width: 100vw; /* 视口宽度 */
+            height: 90vh; /* 视口高度的90% */
+            border: 1px solid #d3d3d3;
+        }
+        .controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        button {
+            margin: 5px;
+            padding: 5px 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="mynetwork"></div>
+    <div class="controls">
+        <button onclick="fitToScreen()">适应屏幕</button>
+        <button onclick="togglePhysics()" id="physicsToggleBtn">关闭物理引擎</button> <!-- 更新按钮ID和初始文本 -->
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
