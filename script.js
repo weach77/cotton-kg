@@ -1,10 +1,8 @@
 // --- 配置部分 ---
-// 从概念定义中获取节点颜色和标签映射
 const conceptDefinitions = {
-    // 从您提供的概念列表中解析
     "人才": { color: "#FF9999", displayLabel: "人才" },
     "高校": { color: "#99CCFF", displayLabel: "高校" },
-    "单位": { color: "#99FF99", displayLabel: "工作单位" }, // 注意：您的JSON中关系range是"单位"
+    "单位": { color: "#99FF99", displayLabel: "工作单位" },
     "城市": { color: "#FFCC99", displayLabel: "城市" },
     "技能": { color: "#FF99CC", displayLabel: "技能" },
     "项目": { color: "#99FFCC", displayLabel: "算力项目" },
@@ -14,9 +12,7 @@ const conceptDefinitions = {
     "合作对象": { color: "#CCFFFF", displayLabel: "合作对象" }
 };
 
-// 从关系定义中获取关系显示标签
 const relationDefinitions = {
-    // 从您提供的关系列表中解析
     "毕业于": { displayLabel: "毕业于" },
     "就职于": { displayLabel: "就职于" },
     "所在城市": { displayLabel: "所在城市" },
@@ -28,10 +24,15 @@ const relationDefinitions = {
     "合作于": { displayLabel: "合作于" }
 };
 
-// 存储所有唯一节点
-const allNodes = new Map();
-// 存储所有边
-const allEdges = [];
+// 存储原始数据
+let originalNodesMap = new Map();
+let originalEdgesArray = [];
+let allNodeIds = []; // 用于按比例选择
+
+// 用于存储当前显示的数据集
+let currentNetworkInstance = null;
+let currentNodesDataset = null;
+let currentEdgesDataset = null;
 
 // 从 data.json 加载数据
 fetch('data.json')
@@ -42,71 +43,87 @@ fetch('data.json')
         return response.json();
     })
     .then(neo4jData => {
-        console.log("Raw data loaded:", neo4jData); // 调试用
+        console.log("Raw data loaded:", neo4jData);
 
-        // 遍历每个路径对象 (n, r, m)
+        // 解析数据
         neo4jData.forEach(item => {
             const nodeN = item.n;
             const rel = item.r;
             const nodeM = item.m;
 
             // --- 处理节点 N ---
-            if (!allNodes.has(nodeN.elementId)) {
+            if (!originalNodesMap.has(nodeN.elementId)) {
                 const nodeLabel = nodeN.labels[0];
-                const config = conceptDefinitions[nodeLabel] || { color: "#CCCCCC", displayLabel: nodeLabel }; // 默认颜色和标签
-                allNodes.set(nodeN.elementId, {
+                const config = conceptDefinitions[nodeLabel] || { color: "#CCCCCC", displayLabel: nodeLabel };
+                originalNodesMap.set(nodeN.elementId, {
                     id: nodeN.elementId,
-                    label: nodeN.properties.name || nodeN.elementId, // 优先使用 name 属性
+                    label: nodeN.properties.name || nodeN.elementId,
                     color: config.color,
                     title: `ID: ${nodeN.elementId}\n类型: ${config.displayLabel}\n名称: ${nodeN.properties.name || 'N/A'}\n属性: ${JSON.stringify(nodeN.properties, null, 2) || 'N/A'}`
                 });
+                allNodeIds.push(nodeN.elementId); // 收集所有节点ID
             }
 
             // --- 处理节点 M ---
-            if (!allNodes.has(nodeM.elementId)) {
+            if (!originalNodesMap.has(nodeM.elementId)) {
                 const nodeLabel = nodeM.labels[0];
                 const config = conceptDefinitions[nodeLabel] || { color: "#CCCCCC", displayLabel: nodeLabel };
-                allNodes.set(nodeM.elementId, {
+                originalNodesMap.set(nodeM.elementId, {
                     id: nodeM.elementId,
                     label: nodeM.properties.name || nodeM.elementId,
                     color: config.color,
                     title: `ID: ${nodeM.elementId}\n类型: ${config.displayLabel}\n名称: ${nodeM.properties.name || 'N/A'}\n属性: ${JSON.stringify(nodeM.properties, null, 2) || 'N/A'}`
                 });
+                allNodeIds.push(nodeM.elementId);
             }
 
             // --- 添加边 ---
-            const relConfig = relationDefinitions[rel.type] || { displayLabel: rel.type }; // 默认显示关系类型
-            allEdges.push({
+            const relConfig = relationDefinitions[rel.type] || { displayLabel: rel.type };
+            originalEdgesArray.push({
                 from: nodeN.elementId,
                 to: nodeM.elementId,
-                label: relConfig.displayLabel, // 使用定义中的显示标签
-                arrows: 'to', // 箭头指向目标节点
+                label: relConfig.displayLabel,
+                arrows: 'to',
                 title: `关系: ${relConfig.displayLabel}\nID: ${rel.elementId}\n属性: ${JSON.stringify(rel.properties, null, 2) || 'N/A'}`
             });
         });
 
-        // 转换为 vis.js 需要的格式
-        const nodesArray = Array.from(allNodes.values());
-        const edgesArray = allEdges;
+        console.log("All Node IDs:", allNodeIds);
+        console.log("Original Nodes Count:", originalNodesMap.size);
+        console.log("Original Edges Count:", originalEdgesArray.length);
 
-        console.log("Processed nodes:", nodesArray); // 调试用
-        console.log("Processed edges:", edgesArray); // 调试用
-
-        drawGraph(nodesArray, edgesArray);
+        // 初始化图谱，显示全部
+        initializeGraph();
     })
     .catch(error => {
         console.error('Error fetching or processing ', error);
         document.getElementById('mynetwork').innerHTML = `<p style="color: red; text-align: center;">加载数据失败: ${error.message}</p>`;
     });
 
-function drawGraph(nodes, edges) {
+function initializeGraph() {
+    // 创建初始数据集（全部节点和边）
+    currentNodesDataset = new vis.DataSet(Array.from(originalNodesMap.values()));
+    currentEdgesDataset = new vis.DataSet(originalEdgesArray);
+
     const container = document.getElementById('mynetwork');
     const data = {
-        nodes: new vis.DataSet(nodes),
-        edges: new vis.DataSet(edges)
+        nodes: currentNodesDataset,
+        edges: currentEdgesDataset
     };
 
-    const options = {
+    const options = getVisOptions(); // 获取统一的配置
+
+    currentNetworkInstance = new vis.Network(container, data, options);
+
+    // 监听物理引擎稳定事件，稳定后禁用物理引擎
+    currentNetworkInstance.on("stabilizationIterationsDone", function () {
+        console.log("Layout stabilization done. Disabling physics.");
+        currentNetworkInstance.setOptions({ physics: { enabled: false } });
+    });
+}
+
+function getVisOptions() {
+    return {
         nodes: {
             shape: 'dot',
             size: 25,
@@ -144,74 +161,113 @@ function drawGraph(nodes, edges) {
             }
         },
         physics: {
-            enabled: true, // 启用物理引擎
-            barnesHut: {
-                gravitationalConstant: -10000, // 增加斥力
-                centralGravity: 0.1,          // 降低向中心的引力
-                springLength: 300,            // 增加弹簧长度
-                springConstant: 0.04,         // 降低弹簧常数，使连接更松弛
-                damping: 0.09                 // 增加阻尼，减少震荡
+            enabled: true,
+            solver: 'forceAtlas2Based',
+            forceAtlas2Based: {
+                gravitationalConstant: -100,
+                springLength: 250,
+                centralGravity: 0.005,
+                damping: 0.4,
+                avoidOverlap: 1
             },
             stabilization: {
-                iterations: 1000,             // 增加稳定迭代次数
+                enabled: true,
+                iterations: 1500,
+                updateInterval: 25,
+                onlyDynamicEdges: false,
                 fit: true
             }
         },
         interaction: {
             tooltipDelay: 200,
-            hideEdgesOnDrag: true,          // 拖拽时隐藏边以提高性能
+            hideEdgesOnDrag: false,
             selectConnectedEdges: true,
             dragNodes: true,
             dragView: true,
             zoomView: true
         },
         layout: {
-            improvedLayout: true,
-            clusterThreshold: 150,          // 增加聚类阈值
-            randomSeed: undefined,          // 使每次布局随机
-            hierarchical: {
-                enabled: false              // 禁用层次布局
-            }
+            improvedLayout: true
         }
     };
-
-    const network = new vis.Network(container, data, options);
-    window.networkInstance = network;
-
-    // 等待布局稳定后，禁用物理引擎
-    network.once('stabilized', function() {
-        setTimeout(function() {
-            network.setOptions({ physics: { enabled: false } });
-        }, 1000); // 等待1秒后禁用物理引擎
-    });
-
-    network.on("click", function (params) {
-        if (params.nodes.length > 0) {
-            const nodeId = params.nodes[0];
-            const node = allNodes.get(nodeId);
-            if (node) {
-                console.log("Clicked Node Details:", node);
-            }
-        }
-        if (params.edges.length > 0) {
-            const edgeId = params.edges[0];
-            const edge = edges.find(e => e.id === edgeId);
-            if (edge) {
-                console.log("Clicked Edge Details:", edge);
-            }
-        }
-    });
 }
 
-// 控制函数
+// --- 按比例展示函数 ---
+function showPercentage(percent) {
+    if (!currentNetworkInstance || allNodeIds.length === 0) return;
+
+    const numNodesToShow = Math.floor((percent / 100) * allNodeIds.length);
+    // 随机选择指定数量的节点ID
+    const shuffledIds = [...allNodeIds].sort(() => 0.5 - Math.random());
+    const selectedNodeIds = new Set(shuffledIds.slice(0, numNodesToShow));
+
+    // 找到与这些节点相关的边
+    const relevantEdges = originalEdgesArray.filter(edge => 
+        selectedNodeIds.has(edge.from) && selectedNodeIds.has(edge.to)
+    );
+
+    // 获取这些边涉及的所有节点ID（可能比selectedNodeIds多，因为边的两端都在selectedNodeIds中）
+    // 但在当前逻辑下，relevantEdges的from和to都在selectedNodeIds里，所以节点集就是selectedNodeIds
+    // 如果需要显示边连接到未被选中节点的情况，则需要更复杂的逻辑
+    // 当前逻辑：只显示 selectedNodeIds 中的节点和它们之间的边
+    const relevantNodes = Array.from(originalNodesMap.values()).filter(node => 
+        selectedNodeIds.has(node.id)
+    );
+
+    console.log(`Showing ${percent}%: ${relevantNodes.length} nodes, ${relevantEdges.length} edges`);
+
+    // 更新图谱数据
+    currentNetworkInstance.setData({
+        nodes: new vis.DataSet(relevantNodes),
+        edges: new vis.DataSet(relevantEdges)
+    });
+    currentNetworkInstance.fit(); // 适应新视图
+    // 重新启用物理引擎进行布局计算
+    currentNetworkInstance.setOptions({ physics: getVisOptions().physics });
+}
+
+// --- 分类展示函数 ---
+function showByLabel(label) {
+    if (!currentNetworkInstance) return;
+
+    // 找到指定标签的节点ID
+    const selectedNodeIds = new Set();
+    originalNodesMap.forEach((node, id) => {
+        if (node.label === label || conceptDefinitions[node.label]?.displayLabel === label) {
+            selectedNodeIds.add(id);
+        }
+    });
+
+    // 找到连接这些节点的边
+    const relevantEdges = originalEdgesArray.filter(edge => 
+        selectedNodeIds.has(edge.from) && selectedNodeIds.has(edge.to)
+    );
+
+    // 获取这些边涉及的节点（与按比例逻辑相同）
+    const relevantNodes = Array.from(originalNodesMap.values()).filter(node => 
+        selectedNodeIds.has(node.id)
+    );
+
+    console.log(`Showing by label '${label}': ${relevantNodes.length} nodes, ${relevantEdges.length} edges`);
+
+    // 更新图谱数据
+    currentNetworkInstance.setData({
+        nodes: new vis.DataSet(relevantNodes),
+        edges: new vis.DataSet(relevantEdges)
+    });
+    currentNetworkInstance.fit();
+    // 重新启用物理引擎进行布局计算
+    currentNetworkInstance.setOptions({ physics: getVisOptions().physics });
+}
+
+// --- 控制函数 ---
 function fitToScreen() {
-    if (window.networkInstance) {
-        window.networkInstance.fit();
+    if (currentNetworkInstance) {
+        currentNetworkInstance.fit();
     }
 }
 
 // 页面加载完成后初始化按钮文本
 window.addEventListener('load', function() {
-    // 如果HTML中有按钮需要初始状态，可以在这里设置
-    // 例如，如果启用了物理引擎的按钮，这里可以隐藏或禁用
+    // 按钮事件监听器在HTML中定义，这里无需再次添加
 });
