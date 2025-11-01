@@ -57,7 +57,7 @@ fetch('data.json')
                 const config = conceptDefinitions[nodeLabel] || { color: "#CCCCCC", displayLabel: nodeLabel };
                 originalNodesMap.set(nodeN.elementId, {
                     id: nodeN.elementId,
-                    label: nodeN.properties.name || nodeN.elementId,
+                    label: nodeN.properties.name || nodeN.elementId, // properties
                     color: config.color,
                     title: `ID: ${nodeN.elementId}\n类型: ${config.displayLabel}\n名称: ${nodeN.properties.name || 'N/A'}\n属性: ${JSON.stringify(nodeN.properties, null, 2) || 'N/A'}`
                 });
@@ -70,7 +70,7 @@ fetch('data.json')
                 const config = conceptDefinitions[nodeLabel] || { color: "#CCCCCC", displayLabel: nodeLabel };
                 originalNodesMap.set(nodeM.elementId, {
                     id: nodeM.elementId,
-                    label: nodeM.properties.name || nodeM.elementId,
+                    label: nodeM.properties.name || nodeM.elementId, // properties
                     color: config.color,
                     title: `ID: ${nodeM.elementId}\n类型: ${config.displayLabel}\n名称: ${nodeM.properties.name || 'N/A'}\n属性: ${JSON.stringify(nodeM.properties, null, 2) || 'N/A'}`
                 });
@@ -184,7 +184,7 @@ function getVisOptions() {
             selectConnectedEdges: true,
             dragNodes: true,
             dragView: true,
-            zoomView: true
+            zoomView: true // 保持全局滚轮缩放
         },
         layout: {
             improvedLayout: true
@@ -239,18 +239,13 @@ function showByLabel(displayLabel) {
     console.log(`Looking for original label: ${originalLabel}, displayLabel: ${displayLabel}`);
 
     // 找到指定原始标签的节点ID
+    // 现在直接使用 originalNodesMap 中存储的节点，其 id 就是 elementId，其类型信息存储在 title 中
+    // 我们之前创建节点时，title 包含了 "类型: ${config.displayLabel}"
+    // 所以直接检查 title 即可
     const selectedNodeIds = new Set();
     originalNodesMap.forEach((node, id) => {
-        // 从 node.title 中提取类型
-        const titleLines = node.title.split('\n');
-        let nodeType = null;
-        for (const line of titleLines) {
-            if (line.startsWith('类型: ')) {
-                nodeType = line.substring(3); // 去掉 "类型: "
-                break;
-            }
-        }
-        if (nodeType === displayLabel) {
+        // 检查节点的 title 是否包含目标类型
+        if (node.title.includes(`类型: ${displayLabel}`)) {
              selectedNodeIds.add(id);
         }
     });
@@ -281,32 +276,15 @@ function showByLabel(displayLabel) {
     currentNetworkInstance.setOptions({ physics: getVisOptions().physics });
 }
 
-// --- 新增：缩放函数 ---
-function zoomIn() {
-    if (currentNetworkInstance) {
-        const currentView = currentNetworkInstance.getViewPosition();
-        const currentScale = currentNetworkInstance.getScale();
-        // 放大，例如乘以 1.2
-        const newScale = currentScale * 1.2;
-        currentNetworkInstance.moveTo({
-            position: currentView,
-            scale: newScale,
-            animation: { duration: 300 } // 添加一个短暂的动画效果
-        });
-    }
-}
-
-function zoomOut() {
-    if (currentNetworkInstance) {
-        const currentView = currentNetworkInstance.getViewPosition();
-        const currentScale = currentNetworkInstance.getScale();
-        // 缩小，例如除以 1.2
-        const newScale = currentScale / 1.2;
-        currentNetworkInstance.moveTo({
-            position: currentView,
-            scale: newScale,
-            animation: { duration: 300 }
-        });
+// --- 新增：隐藏/显示控制界面函数 ---
+function toggleControls() {
+    const controlsDiv = document.querySelector('.controls');
+    if (controlsDiv) {
+        if (controlsDiv.style.display === 'none' || controlsDiv.style.display === '') {
+            controlsDiv.style.display = 'block';
+        } else {
+            controlsDiv.style.display = 'none';
+        }
     }
 }
 
