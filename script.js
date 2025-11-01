@@ -34,6 +34,9 @@ let currentNetworkInstance = null;
 let currentNodesDataset = null;
 let currentEdgesDataset = null;
 
+// 控制界面状态
+let controlsVisible = true;
+
 // 从 data.json 加载数据
 fetch('data.json')
     .then(response => {
@@ -232,6 +235,7 @@ function showByLabel(displayLabel) {
     }
 
     // 如果没有在 displayLabel 中找到，尝试直接用传入的 displayLabel 作为原始标签
+    // 这对于原始标签和显示标签相同的情况（如 "人才", "高校" 等）很有用
     if (originalLabel === null) {
         originalLabel = displayLabel;
     }
@@ -239,12 +243,11 @@ function showByLabel(displayLabel) {
     console.log(`Looking for original label: ${originalLabel}, displayLabel: ${displayLabel}`);
 
     // 找到指定原始标签的节点ID
-    // 现在直接使用 originalNodesMap 中存储的节点，其 id 就是 elementId，其类型信息存储在 title 中
-    // 我们之前创建节点时，title 包含了 "类型: ${config.displayLabel}"
-    // 所以直接检查 title 即可
     const selectedNodeIds = new Set();
     originalNodesMap.forEach((node, id) => {
         // 检查节点的 title 是否包含目标类型
+        // 由于 title 是根据 conceptDefinitions[原始标签].displayLabel 生成的
+        // 我们需要查找的 displayLabel 必须与 conceptDefinitions 中定义的 displayLabel 一致
         if (node.title.includes(`类型: ${displayLabel}`)) {
              selectedNodeIds.add(id);
         }
@@ -276,15 +279,46 @@ function showByLabel(displayLabel) {
     currentNetworkInstance.setOptions({ physics: getVisOptions().physics });
 }
 
-// --- 新增：隐藏/显示控制界面函数 ---
+// --- 新增：最小化/恢复控制界面函数 ---
 function toggleControls() {
     const controlsDiv = document.querySelector('.controls');
     if (controlsDiv) {
-        if (controlsDiv.style.display === 'none' || controlsDiv.style.display === '') {
-            controlsDiv.style.display = 'block';
-        } else {
+        if (controlsVisible) {
+            // 当前显示，需要隐藏
             controlsDiv.style.display = 'none';
+            // 创建一个“恢复”按钮
+            createRestoreButton();
+        } else {
+            // 当前隐藏，需要显示
+            controlsDiv.style.display = 'block';
+            // 移除“恢复”按钮
+            removeRestoreButton();
         }
+        controlsVisible = !controlsVisible; // 切换状态
+    }
+}
+
+// 创建恢复按钮
+function createRestoreButton() {
+    const restoreButton = document.createElement('button');
+    restoreButton.id = 'restore-controls-btn';
+    restoreButton.textContent = '恢复';
+    restoreButton.style.position = 'absolute';
+    restoreButton.style.top = '10px';
+    restoreButton.style.right = '10px';
+    restoreButton.style.zIndex = '11'; // 确保在图层上方
+    restoreButton.style.padding = '5px 10px';
+    restoreButton.style.fontSize = '12px';
+    restoreButton.onclick = toggleControls; // 点击恢复
+
+    document.body.appendChild(restoreButton);
+}
+
+// 移除恢复按钮
+function removeRestoreButton() {
+    const existingRestoreButton = document.getElementById('restore-controls-btn');
+    if (existingRestoreButton) {
+        existingRestoreButton.remove();
     }
 }
 

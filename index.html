@@ -55,6 +55,16 @@
             margin: 0 2px; /* 调整缩放按钮的边距 */
             min-width: 30px; /* 设置缩放按钮的最小宽度 */
         }
+        /* 样式恢复按钮 */
+        #restore-controls-btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #restore-controls-btn:hover {
+            background-color: #0056b3;
+        }
     </style>
 </head>
 <body>
@@ -74,10 +84,10 @@
             <div class="button-row">
                 <button onclick="showByLabel('人才')">人才</button>
                 <button onclick="showByLabel('高校')">高校</button>
-                <button onclick="showByLabel('单位')">单位</button> <!-- 使用 range 中的 "单位" -->
+                <button onclick="showByLabel('工作单位')">工作单位</button> <!-- 使用 displayLabel -->
                 <button onclick="showByLabel('城市')">城市</button>
                 <button onclick="showByLabel('技能')">技能</button>
-                <button onclick="showByLabel('项目')">项目</button> <!-- 使用 range 中的 "项目" -->
+                <button onclick="showByLabel('算力项目')">算力项目</button> <!-- 使用 displayLabel -->
                 <button onclick="showByLabel('专业领域')">专业领域</button>
                 <button onclick="showByLabel('算力工作年限')">年限</button>
                 <button onclick="showByLabel('算力类型')">算力类型</button>
@@ -86,7 +96,7 @@
         </div>
         <div class="control-group">
             <div class="zoom-controls">
-                <button onclick="toggleControls()">H</button> <!-- "H" 代表 Hide/Show -->
+                <button onclick="toggleControls()">_</button> <!-- "_" 代表最小化 -->
             </div>
             <button onclick="fitToScreen()">适应屏幕</button>
         </div>
