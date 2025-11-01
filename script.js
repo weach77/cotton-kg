@@ -2,10 +2,10 @@
 const conceptDefinitions = {
     "人才": { color: "#FF9999", displayLabel: "人才" },
     "高校": { color: "#99CCFF", displayLabel: "高校" },
-    "单位": { color: "#99FF99", displayLabel: "工作单位" },
+    "单位": { color: "#99FF99", displayLabel: "工作单位" }, // 原始标签是 "单位"
     "城市": { color: "#FFCC99", displayLabel: "城市" },
     "技能": { color: "#FF99CC", displayLabel: "技能" },
-    "项目": { color: "#99FFCC", displayLabel: "算力项目" },
+    "项目": { color: "#99FFCC", displayLabel: "算力项目" }, // 原始标签是 "项目"
     "专业领域": { color: "#CCFF99", displayLabel: "专业领域" },
     "算力工作年限": { color: "#CCCCFF", displayLabel: "算力工作年限" },
     "算力类型": { color: "#FFCCFF", displayLabel: "算力类型" },
@@ -53,7 +53,7 @@ fetch('data.json')
 
             // --- 处理节点 N ---
             if (!originalNodesMap.has(nodeN.elementId)) {
-                const nodeLabel = nodeN.labels[0];
+                const nodeLabel = nodeN.labels[0]; // 这是原始标签，如 "人才", "单位"
                 const config = conceptDefinitions[nodeLabel] || { color: "#CCCCCC", displayLabel: nodeLabel };
                 originalNodesMap.set(nodeN.elementId, {
                     id: nodeN.elementId,
@@ -61,12 +61,12 @@ fetch('data.json')
                     color: config.color,
                     title: `ID: ${nodeN.elementId}\n类型: ${config.displayLabel}\n名称: ${nodeN.properties.name || 'N/A'}\n属性: ${JSON.stringify(nodeN.properties, null, 2) || 'N/A'}`
                 });
-                allNodeIds.push(nodeN.elementId); // 收集所有节点ID
+                allNodeIds.push(nodeN.elementId);
             }
 
             // --- 处理节点 M ---
             if (!originalNodesMap.has(nodeM.elementId)) {
-                const nodeLabel = nodeM.labels[0];
+                const nodeLabel = nodeM.labels[0]; // 这是原始标签，如 "高校", "单位"
                 const config = conceptDefinitions[nodeLabel] || { color: "#CCCCCC", displayLabel: nodeLabel };
                 originalNodesMap.set(nodeM.elementId, {
                     id: nodeM.elementId,
@@ -111,7 +111,7 @@ function initializeGraph() {
         edges: currentEdgesDataset
     };
 
-    const options = getVisOptions(); // 获取统一的配置
+    const options = getVisOptions();
 
     currentNetworkInstance = new vis.Network(container, data, options);
 
@@ -197,58 +197,80 @@ function showPercentage(percent) {
     if (!currentNetworkInstance || allNodeIds.length === 0) return;
 
     const numNodesToShow = Math.floor((percent / 100) * allNodeIds.length);
-    // 随机选择指定数量的节点ID
     const shuffledIds = [...allNodeIds].sort(() => 0.5 - Math.random());
     const selectedNodeIds = new Set(shuffledIds.slice(0, numNodesToShow));
 
-    // 找到与这些节点相关的边
-    const relevantEdges = originalEdgesArray.filter(edge => 
+    const relevantEdges = originalEdgesArray.filter(edge =>
         selectedNodeIds.has(edge.from) && selectedNodeIds.has(edge.to)
     );
 
-    // 获取这些边涉及的所有节点ID（可能比selectedNodeIds多，因为边的两端都在selectedNodeIds中）
-    // 但在当前逻辑下，relevantEdges的from和to都在selectedNodeIds里，所以节点集就是selectedNodeIds
-    // 如果需要显示边连接到未被选中节点的情况，则需要更复杂的逻辑
-    // 当前逻辑：只显示 selectedNodeIds 中的节点和它们之间的边
-    const relevantNodes = Array.from(originalNodesMap.values()).filter(node => 
+    const relevantNodes = Array.from(originalNodesMap.values()).filter(node =>
         selectedNodeIds.has(node.id)
     );
 
     console.log(`Showing ${percent}%: ${relevantNodes.length} nodes, ${relevantEdges.length} edges`);
 
-    // 更新图谱数据
     currentNetworkInstance.setData({
         nodes: new vis.DataSet(relevantNodes),
         edges: new vis.DataSet(relevantEdges)
     });
-    currentNetworkInstance.fit(); // 适应新视图
-    // 重新启用物理引擎进行布局计算
+    currentNetworkInstance.fit();
     currentNetworkInstance.setOptions({ physics: getVisOptions().physics });
 }
 
-// --- 分类展示函数 ---
-function showByLabel(label) {
+// --- 分类展示函数 (修复) ---
+function showByLabel(displayLabel) {
     if (!currentNetworkInstance) return;
 
-    // 找到指定标签的节点ID
+    // 修复：查找原始标签 (label) 对应的 displayLabel
+    let originalLabel = null;
+    for (const [label, config] of Object.entries(conceptDefinitions)) {
+        if (config.displayLabel === displayLabel) {
+            originalLabel = label;
+            break;
+        }
+    }
+
+    // 如果没有在 displayLabel 中找到，尝试直接用传入的 displayLabel 作为原始标签
+    if (originalLabel === null) {
+        originalLabel = displayLabel;
+    }
+
+    console.log(`Looking for original label: ${originalLabel}, displayLabel: ${displayLabel}`);
+
+    // 找到指定原始标签的节点ID
     const selectedNodeIds = new Set();
     originalNodesMap.forEach((node, id) => {
-        if (node.label === label || conceptDefinitions[node.label]?.displayLabel === label) {
-            selectedNodeIds.add(id);
+        // 从 node.title 中提取类型
+        const titleLines = node.title.split('\n');
+        let nodeType = null;
+        for (const line of titleLines) {
+            if (line.startsWith('类型: ')) {
+                nodeType = line.substring(3); // 去掉 "类型: "
+                break;
+            }
+        }
+        if (nodeType === displayLabel) {
+             selectedNodeIds.add(id);
         }
     });
 
     // 找到连接这些节点的边
-    const relevantEdges = originalEdgesArray.filter(edge => 
+    const relevantEdges = originalEdgesArray.filter(edge =>
         selectedNodeIds.has(edge.from) && selectedNodeIds.has(edge.to)
     );
 
-    // 获取这些边涉及的节点（与按比例逻辑相同）
-    const relevantNodes = Array.from(originalNodesMap.values()).filter(node => 
+    // 获取这些边涉及的节点
+    const relevantNodes = Array.from(originalNodesMap.values()).filter(node =>
         selectedNodeIds.has(node.id)
     );
 
-    console.log(`Showing by label '${label}': ${relevantNodes.length} nodes, ${relevantEdges.length} edges`);
+    console.log(`Showing by label '${displayLabel}' (original: ${originalLabel}): ${relevantNodes.length} nodes, ${relevantEdges.length} edges`);
+
+    if (relevantNodes.length === 0) {
+        alert(`没有找到类型为 "${displayLabel}" 的节点。`);
+        return; // 如果没有节点，不更新图谱
+    }
 
     // 更新图谱数据
     currentNetworkInstance.setData({
@@ -256,8 +278,36 @@ function showByLabel(label) {
         edges: new vis.DataSet(relevantEdges)
     });
     currentNetworkInstance.fit();
-    // 重新启用物理引擎进行布局计算
     currentNetworkInstance.setOptions({ physics: getVisOptions().physics });
+}
+
+// --- 新增：缩放函数 ---
+function zoomIn() {
+    if (currentNetworkInstance) {
+        const currentView = currentNetworkInstance.getViewPosition();
+        const currentScale = currentNetworkInstance.getScale();
+        // 放大，例如乘以 1.2
+        const newScale = currentScale * 1.2;
+        currentNetworkInstance.moveTo({
+            position: currentView,
+            scale: newScale,
+            animation: { duration: 300 } // 添加一个短暂的动画效果
+        });
+    }
+}
+
+function zoomOut() {
+    if (currentNetworkInstance) {
+        const currentView = currentNetworkInstance.getViewPosition();
+        const currentScale = currentNetworkInstance.getScale();
+        // 缩小，例如除以 1.2
+        const newScale = currentScale / 1.2;
+        currentNetworkInstance.moveTo({
+            position: currentView,
+            scale: newScale,
+            animation: { duration: 300 }
+        });
+    }
 }
 
 // --- 控制函数 ---
