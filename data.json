@@ -16686,7 +16686,7 @@
       "identity": 6917531226664337803,
       "start": 326,
       "end": 395,
-      "type": "所在地区",
+      "type": "所研究领域",
       "properties": {},
       "elementId": "5:871cedeb-7b60-4b39-a1a2-dbe38688146f:6917531226664337803",
       "startNodeElementId": "4:871cedeb-7b60-4b39-a1a2-dbe38688146f:326",
@@ -16695,7 +16695,7 @@
     "m": {
       "identity": 395,
       "labels": [
-        "地区"
+        "研究领域"
       ],
       "properties": {
         "value": "入侵信号识别"
