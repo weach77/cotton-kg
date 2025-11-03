@@ -1,27 +1,22 @@
-// --- 配置部分 ---
+// --- 配置部分 (根据新本体) ---
+// 从概念定义中获取节点颜色和标签映射
 const conceptDefinitions = {
-    "人才": { color: "#FF9999", displayLabel: "人才" },
-    "高校": { color: "#99CCFF", displayLabel: "高校" },
-    "单位": { color: "#99FF99", displayLabel: "工作单位" }, // 原始标签是 "单位"
-    "城市": { color: "#FFCC99", displayLabel: "城市" },
-    "技能": { color: "#FF99CC", displayLabel: "技能" },
-    "项目": { color: "#99FFCC", displayLabel: "算力项目" }, // 原始标签是 "项目"
-    "专业领域": { color: "#CCFF99", displayLabel: "专业领域" },
-    "算力工作年限": { color: "#CCCCFF", displayLabel: "算力工作年限" },
-    "算力类型": { color: "#FFCCFF", displayLabel: "算力类型" },
-    "合作对象": { color: "#CCFFFF", displayLabel: "合作对象" }
+    "姓名": { color: "#FF9999", displayLabel: "姓名" },
+    "年龄": { color: "#99CCFF", displayLabel: "年龄" },
+    "性别": { color: "#99FF99", displayLabel: "性别" },
+    "单位": { color: "#FFCC99", displayLabel: "单位" },
+    "地区": { color: "#FF99CC", displayLabel: "地区" },
+    "研究领域": { color: "#99FFCC", displayLabel: "研究领域" }
 };
 
+// 从关系定义中获取关系显示标签
 const relationDefinitions = {
-    "毕业于": { displayLabel: "毕业于" },
-    "就职于": { displayLabel: "就职于" },
-    "所在城市": { displayLabel: "所在城市" },
-    "掌握技能": { displayLabel: "掌握技能" },
-    "参与项目": { displayLabel: "参与项目" },
-    "具备专业领域": { displayLabel: "具备专业领域" },
     "拥有": { displayLabel: "拥有" },
-    "熟悉算力类型": { displayLabel: "熟悉算力类型" },
-    "合作于": { displayLabel: "合作于" }
+    "就职于": { displayLabel: "就职于" },
+    "所在地区": { displayLabel: "所在地区" },
+    "是": { displayLabel: "是" },
+    "参与项目": { displayLabel: "参与项目" }, // 注意：本体中domain是"人才"，但数据中可能用"姓名"
+    "所研究领域": { displayLabel: "所研究领域" }
 };
 
 // 存储原始数据
@@ -56,26 +51,26 @@ fetch('data.json')
 
             // --- 处理节点 N ---
             if (!originalNodesMap.has(nodeN.elementId)) {
-                const nodeLabel = nodeN.labels[0]; // 这是原始标签，如 "人才", "单位"
+                const nodeLabel = nodeN.labels[0]; // 这是原始标签，如 "姓名", "年龄"
                 const config = conceptDefinitions[nodeLabel] || { color: "#CCCCCC", displayLabel: nodeLabel };
                 originalNodesMap.set(nodeN.elementId, {
                     id: nodeN.elementId,
-                    label: nodeN.properties.name || nodeN.elementId, // properties
+                    label: nodeN.properties.value || nodeN.elementId, // 新数据使用 properties.value
                     color: config.color,
-                    title: `ID: ${nodeN.elementId}\n类型: ${config.displayLabel}\n名称: ${nodeN.properties.name || 'N/A'}\n属性: ${JSON.stringify(nodeN.properties, null, 2) || 'N/A'}`
+                    title: `ID: ${nodeN.elementId}\n类型: ${config.displayLabel}\n值: ${nodeN.properties.value || 'N/A'}\n属性: ${JSON.stringify(nodeN.properties, null, 2) || 'N/A'}`
                 });
                 allNodeIds.push(nodeN.elementId);
             }
 
             // --- 处理节点 M ---
             if (!originalNodesMap.has(nodeM.elementId)) {
-                const nodeLabel = nodeM.labels[0]; // 这是原始标签，如 "高校", "单位"
+                const nodeLabel = nodeM.labels[0]; // 这是原始标签，如 "单位", "研究领域"
                 const config = conceptDefinitions[nodeLabel] || { color: "#CCCCCC", displayLabel: nodeLabel };
                 originalNodesMap.set(nodeM.elementId, {
                     id: nodeM.elementId,
-                    label: nodeM.properties.name || nodeM.elementId, // properties
+                    label: nodeM.properties.value || nodeM.elementId, // 新数据使用 properties.value
                     color: config.color,
-                    title: `ID: ${nodeM.elementId}\n类型: ${config.displayLabel}\n名称: ${nodeM.properties.name || 'N/A'}\n属性: ${JSON.stringify(nodeM.properties, null, 2) || 'N/A'}`
+                    title: `ID: ${nodeM.elementId}\n类型: ${config.displayLabel}\n值: ${nodeM.properties.value || 'N/A'}\n属性: ${JSON.stringify(nodeM.properties, null, 2) || 'N/A'}`
                 });
                 allNodeIds.push(nodeM.elementId);
             }
@@ -221,7 +216,7 @@ function showPercentage(percent) {
     currentNetworkInstance.setOptions({ physics: getVisOptions().physics });
 }
 
-// --- 分类展示函数 (修复) ---
+// --- 分类展示函数 (根据新本体调整) ---
 function showByLabel(displayLabel) {
     if (!currentNetworkInstance) return;
 
@@ -235,7 +230,7 @@ function showByLabel(displayLabel) {
     }
 
     // 如果没有在 displayLabel 中找到，尝试直接用传入的 displayLabel 作为原始标签
-    // 这对于原始标签和显示标签相同的情况（如 "人才", "高校" 等）很有用
+    // 这对于原始标签和显示标签相同的情况（如 "单位", "研究领域" 等）很有用
     if (originalLabel === null) {
         originalLabel = displayLabel;
     }
