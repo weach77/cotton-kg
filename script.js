@@ -1,11 +1,11 @@
-// --- 配置部分 (根据新本体) ---
+// --- 配置部分 (根据新本体，移除年龄和性别) ---
 // 从概念定义中获取节点颜色和标签映射
 const conceptDefinitions = {
     "姓名": { color: "#FF9999", displayLabel: "姓名" },
-    "年龄": { color: "#99CCFF", displayLabel: "年龄" },
-    "性别": { color: "#99FF99", displayLabel: "性别" },
-    "单位": { color: "#FFCC99", displayLabel: "单位" },
-    "地区": { color: "#FF99CC", displayLabel: "地区" },
+    // "年龄": { color: "#99CCFF", displayLabel: "年龄" }, // 移除
+    // "性别": { color: "#99FF99", displayLabel: "性别" }, // 移除
+    "单位": { color: "#99FF99", displayLabel: "单位" },
+    "地区": { color: "#FFCC99", displayLabel: "地区" },
     "研究领域": { color: "#99FFCC", displayLabel: "研究领域" }
 };
 
@@ -15,7 +15,7 @@ const relationDefinitions = {
     "就职于": { displayLabel: "就职于" },
     "所在地区": { displayLabel: "所在地区" },
     "是": { displayLabel: "是" },
-    "参与项目": { displayLabel: "参与项目" }, // 注意：本体中domain是"人才"，但数据中可能用"姓名"
+    "参与项目": { displayLabel: "参与项目" },
     "所研究领域": { displayLabel: "所研究领域" }
 };
 
@@ -216,7 +216,7 @@ function showPercentage(percent) {
     currentNetworkInstance.setOptions({ physics: getVisOptions().physics });
 }
 
-// --- 分类展示函数 (根据新本体调整) ---
+// --- 分类展示函数 (根据新本体调整，移除年龄和性别) ---
 function showByLabel(displayLabel) {
     if (!currentNetworkInstance) return;
 
