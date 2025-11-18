@@ -457,8 +457,8 @@ function hideNodeDetails() {
 function escapeHtml(text) {
     const map = {
         '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
+        '<': '<',
+        '>': '>',
         '"': '&quot;',
         "'": '&#039;'
     };
@@ -468,7 +468,7 @@ function escapeHtml(text) {
 // --- 页面加载 ---
 window.addEventListener('DOMContentLoaded', function() {
     initializeUIElements();
-    
+
     showLoadingIndicator(true);
 
     fetch('data.json')
@@ -490,11 +490,18 @@ window.addEventListener('DOMContentLoaded', function() {
                 if (!originalNodesMap.has(nodeN.elementId)) {
                     const nodeLabel = nodeN.labels[0];
                     const config = conceptDefinitions[nodeLabel] || { color: "#CCCCCC", displayLabel: nodeLabel };
+
+                    // 【关键修改】对于"姓名"节点，优先使用name属性
+                    let nodeLabelValue = nodeN.properties.value || nodeN.elementId;
+                    if (nodeLabel === "姓名" && nodeN.properties.name) {
+                        nodeLabelValue = nodeN.properties.name;
+                    }
+
                     originalNodesMap.set(nodeN.elementId, {
                         id: nodeN.elementId,
-                        label: nodeN.properties.value || nodeN.elementId,
+                        label: nodeLabelValue,
                         color: config.color,
-                        title: `ID: ${nodeN.elementId}\n类型: ${config.displayLabel}\n值: ${nodeN.properties.value || 'N/A'}\n属性: ${JSON.stringify(nodeN.properties, null, 2) || 'N/A'}`
+                        title: `ID: ${nodeN.elementId}\n类型: ${config.displayLabel}\n值: ${nodeN.properties.value || nodeN.properties.name || 'N/A'}\n属性: ${JSON.stringify(nodeN.properties, null, 2) || 'N/A'}`
                     });
                     allNodeIds.push(nodeN.elementId);
                 }
@@ -503,11 +510,18 @@ window.addEventListener('DOMContentLoaded', function() {
                 if (!originalNodesMap.has(nodeM.elementId)) {
                     const nodeLabel = nodeM.labels[0];
                     const config = conceptDefinitions[nodeLabel] || { color: "#CCCCCC", displayLabel: nodeLabel };
+
+                    // 【关键修改】对于"姓名"节点，优先使用name属性
+                    let nodeLabelValue = nodeM.properties.value || nodeM.elementId;
+                    if (nodeLabel === "姓名" && nodeM.properties.name) {
+                        nodeLabelValue = nodeM.properties.name;
+                    }
+
                     originalNodesMap.set(nodeM.elementId, {
                         id: nodeM.elementId,
-                        label: nodeM.properties.value || nodeM.elementId,
+                        label: nodeLabelValue,
                         color: config.color,
-                        title: `ID: ${nodeM.elementId}\n类型: ${config.displayLabel}\n值: ${nodeM.properties.value || 'N/A'}\n属性: ${JSON.stringify(nodeM.properties, null, 2) || 'N/A'}`
+                        title: `ID: ${nodeM.elementId}\n类型: ${config.displayLabel}\n值: ${nodeM.properties.value || nodeM.properties.name || 'N/A'}\n属性: ${JSON.stringify(nodeM.properties, null, 2) || 'N/A'}`
                     });
                     allNodeIds.push(nodeM.elementId);
                 }
