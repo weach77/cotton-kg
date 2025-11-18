@@ -311,19 +311,18 @@ function createNodeDetailsPanel() {
         z-index: 100;
         font-size: 13px;
         font-family: Arial, sans-serif;
-        display: none;
         overflow: hidden;
-        display: flex;
-        flex-direction: column;
     `;
 
     const style = document.createElement('style');
     style.textContent = `
+        /* 【修复关键】使用 display 属性来控制显示/隐藏 */
         #node-details-panel {
-            display: none;
+            display: none !important;
+            flex-direction: column;
         }
         #node-details-panel.show {
-            display: flex;
+            display: flex !important;
         }
         .details-header {
             background: #f0f0f0;
@@ -348,6 +347,7 @@ function createNodeDetailsPanel() {
             padding: 0;
             width: 24px;
             height: 24px;
+            transition: color 0.2s;
         }
         .details-header .close-btn:hover {
             color: #000;
@@ -443,12 +443,14 @@ function showNodeDetails(nodeId) {
 
     const panel = document.getElementById('node-details-panel');
     panel.classList.add('show');
+    console.log('显示节点详情:', nodeId);
 }
 
 function hideNodeDetails() {
     const panel = document.getElementById('node-details-panel');
     if (panel) {
         panel.classList.remove('show');
+        console.log('隐藏节点详情');
     }
 }
 
