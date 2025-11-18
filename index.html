@@ -14,7 +14,7 @@
         }
         #mynetwork {
             width: 100vw;
-            height: 85vh; /* 留出控件空间 */
+            height: 85vh;
             border: 1px solid #d3d3d3;
         }
         .controls {
@@ -26,41 +26,55 @@
             padding: 10px;
             border-radius: 5px;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            max-width: 300px; /* 限制最大宽度 */
+            max-width: 300px;
         }
         .control-group {
             margin-bottom: 10px;
         }
         h4 {
-            margin: 5px 0; /* 减小标题上下边距 */
-            font-size: 14px; /* 减小标题字体 */
+            margin: 5px 0;
+            font-size: 14px;
         }
         .button-row {
             display: flex;
-            flex-wrap: wrap; /* 按钮过多时自动换行 */
-            gap: 3px; /* 按钮间隙 */
+            flex-wrap: wrap;
+            gap: 3px;
         }
         button {
-            margin: 1px; /* 减小按钮外边距 */
-            padding: 3px 6px; /* 减小按钮内边距 */
-            font-size: 11px; /* 减小按钮字体 */
-            flex: 1 1 auto; /* 按钮尽可能平均分配空间 */
-            min-width: 50px; /* 设置最小宽度 */
+            margin: 1px;
+            padding: 3px 6px;
+            font-size: 11px;
+            flex: 1 1 auto;
+            min-width: 50px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            background-color: #f5f5f5;
+            border-radius: 3px;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background-color: #e8e8e8;
+        }
+        button:active {
+            background-color: #d0d0d0;
         }
         .zoom-controls {
-            display: inline-flex; /* 让按钮并排 */
-            align-items: center; /* 垂直居中 */
+            display: inline-flex;
+            align-items: center;
         }
         .zoom-controls button {
-            margin: 0 2px; /* 调整缩放按钮的边距 */
-            min-width: 30px; /* 设置缩放按钮的最小宽度 */
+            margin: 0 2px;
+            min-width: 30px;
         }
-        /* 样式恢复按钮 */
         #restore-controls-btn {
             background-color: #007bff;
             color: white;
             border: none;
             cursor: pointer;
+            padding: 8px 15px;
+            font-size: 12px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
         #restore-controls-btn:hover {
             background-color: #0056b3;
@@ -83,8 +97,6 @@
             <h4>按类型展示</h4>
             <div class="button-row">
                 <button onclick="showByLabel('姓名')">姓名</button>
-                <!-- <button onclick="showByLabel('年龄')">年龄</button> 移除 -->
-                <!-- <button onclick="showByLabel('性别')">性别</button> 移除 -->
                 <button onclick="showByLabel('单位')">单位</button>
                 <button onclick="showByLabel('地区')">地区</button>
                 <button onclick="showByLabel('研究领域')">研究领域</button>
@@ -92,7 +104,7 @@
         </div>
         <div class="control-group">
             <div class="zoom-controls">
-                <button onclick="toggleControls()">_</button> <!-- "_" 代表最小化 -->
+                <button onclick="toggleControls()">−</button>
             </div>
             <button onclick="fitToScreen()">适应屏幕</button>
         </div>

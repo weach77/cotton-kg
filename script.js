@@ -1,5 +1,4 @@
-// --- 配置部分 (根据新本体，移除年龄和性别) ---
-// 从概念定义中获取节点颜色和标签映射
+// --- 配置部分 ---
 const conceptDefinitions = {
     "姓名": { color: "#FF9999", displayLabel: "姓名" },
     "单位": { color: "#99FF99", displayLabel: "单位" },
@@ -7,7 +6,6 @@ const conceptDefinitions = {
     "研究领域": { color: "#99FFCC", displayLabel: "研究领域" }
 };
 
-// 从关系定义中获取关系显示标签
 const relationDefinitions = {
     "拥有": { displayLabel: "拥有" },
     "就职于": { displayLabel: "就职于" },
@@ -17,17 +15,13 @@ const relationDefinitions = {
     "所研究领域": { displayLabel: "所研究领域" }
 };
 
-// 存储原始数据
+// --- 全局变量 ---
 let originalNodesMap = new Map();
 let originalEdgesArray = [];
-let allNodeIds = []; // 用于按比例选择
-
-// 用于存储当前显示的数据集
+let allNodeIds = [];
 let currentNetworkInstance = null;
 let currentNodesDataset = null;
 let currentEdgesDataset = null;
-
-// 控制界面状态
 let controlsVisible = true;
 
 // --- 初始化UI元素 ---
@@ -141,13 +135,17 @@ function createStatisticsPanel() {
         z-index: 100;
         font-size: 13px;
         font-family: Arial, sans-serif;
+        max-height: 400px;
+        overflow-y: auto;
     `;
 
     const style = document.createElement('style');
     style.textContent = `
         #statistics-panel {
-            max-height: 400px;
-            overflow-y: auto;
+            display: none;
+        }
+        #statistics-panel.show {
+            display: block;
         }
         .stats-header {
             background: #f0f0f0;
@@ -156,6 +154,8 @@ function createStatisticsPanel() {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: sticky;
+            top: 0;
         }
         .stats-header h3 {
             margin: 0;
@@ -180,6 +180,7 @@ function createStatisticsPanel() {
         }
         .stats-content {
             padding: 10px;
+            display: block;
         }
         .stat-item {
             display: flex;
@@ -220,13 +221,28 @@ function createStatisticsPanel() {
     `;
     document.head.appendChild(style);
     document.body.appendChild(panel);
+    
+    // 默认显示统计面板
+    panel.classList.add('show');
 }
 
+// 【修复关键】正确获取当前网络中的节点和边数量
 function updateStatisticsPanel() {
     const totalNodes = originalNodesMap.size;
     const totalEdges = originalEdgesArray.length;
-    const currentNodes = currentNodesDataset ? currentNodesDataset.length : 0;
-    const currentEdges = currentEdgesDataset ? currentEdgesDataset.length : 0;
+    
+    // 【修复】直接从 vis.DataSet 的 keys() 方法获取实际数量
+    let currentNodes = 0;
+    let currentEdges = 0;
+    
+    if (currentNodesDataset) {
+        currentNodes = currentNodesDataset.length;
+    }
+    if (currentEdgesDataset) {
+        currentEdges = currentEdgesDataset.length;
+    }
+
+    console.log(`更新统计: 总节点=${totalNodes}, 总关系=${totalEdges}, 当前节点=${currentNodes}, 当前关系=${currentEdges}`);
 
     document.getElementById('total-nodes').textContent = totalNodes;
     document.getElementById('total-edges').textContent = totalEdges;
@@ -296,14 +312,18 @@ function createNodeDetailsPanel() {
         font-size: 13px;
         font-family: Arial, sans-serif;
         display: none;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
     `;
 
     const style = document.createElement('style');
     style.textContent = `
         #node-details-panel {
-            overflow: hidden;
+            display: none;
+        }
+        #node-details-panel.show {
             display: flex;
-            flex-direction: column;
         }
         .details-header {
             background: #f0f0f0;
@@ -318,6 +338,19 @@ function createNodeDetailsPanel() {
             margin: 0;
             font-size: 14px;
             font-weight: bold;
+        }
+        .details-header .close-btn {
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+        }
+        .details-header .close-btn:hover {
+            color: #000;
         }
         .details-content {
             padding: 12px;
@@ -365,7 +398,6 @@ function showNodeDetails(nodeId) {
     const node = originalNodesMap.get(nodeId);
     if (!node) return;
 
-    // 查找与该节点相关的边
     const relatedEdges = originalEdgesArray.filter(edge =>
         edge.from === nodeId || edge.to === nodeId
     );
@@ -409,15 +441,14 @@ function showNodeDetails(nodeId) {
 
     detailsContent.innerHTML = html;
 
-    // 显示面板
     const panel = document.getElementById('node-details-panel');
-    panel.style.display = 'block';
+    panel.classList.add('show');
 }
 
 function hideNodeDetails() {
     const panel = document.getElementById('node-details-panel');
     if (panel) {
-        panel.style.display = 'none';
+        panel.classList.remove('show');
     }
 }
 
@@ -436,7 +467,8 @@ function escapeHtml(text) {
 window.addEventListener('DOMContentLoaded', function() {
     initializeUIElements();
     
-    // 从 data.json 加载数据
+    showLoadingIndicator(true);
+
     fetch('data.json')
         .then(response => {
             if (!response.ok) {
@@ -447,13 +479,12 @@ window.addEventListener('DOMContentLoaded', function() {
         .then(neo4jData => {
             console.log("Raw data loaded:", neo4jData);
 
-            // 解析数据
             neo4jData.forEach(item => {
                 const nodeN = item.n;
                 const rel = item.r;
                 const nodeM = item.m;
 
-                // --- 处理节点 N ---
+                // 处理节点 N
                 if (!originalNodesMap.has(nodeN.elementId)) {
                     const nodeLabel = nodeN.labels[0];
                     const config = conceptDefinitions[nodeLabel] || { color: "#CCCCCC", displayLabel: nodeLabel };
@@ -466,7 +497,7 @@ window.addEventListener('DOMContentLoaded', function() {
                     allNodeIds.push(nodeN.elementId);
                 }
 
-                // --- 处理节点 M ---
+                // 处理节点 M
                 if (!originalNodesMap.has(nodeM.elementId)) {
                     const nodeLabel = nodeM.labels[0];
                     const config = conceptDefinitions[nodeLabel] || { color: "#CCCCCC", displayLabel: nodeLabel };
@@ -479,7 +510,7 @@ window.addEventListener('DOMContentLoaded', function() {
                     allNodeIds.push(nodeM.elementId);
                 }
 
-                // --- 添加边 ---
+                // 添加边
                 const relConfig = relationDefinitions[rel.type] || { displayLabel: rel.type };
                 originalEdgesArray.push({
                     from: nodeN.elementId,
@@ -494,9 +525,7 @@ window.addEventListener('DOMContentLoaded', function() {
             console.log("Original Nodes Count:", originalNodesMap.size);
             console.log("Original Edges Count:", originalEdgesArray.length);
 
-            // 初始化图谱
             initializeGraph();
-            showLoadingIndicator(false);
         })
         .catch(error => {
             console.error('Error fetching or processing:', error);
@@ -506,7 +535,6 @@ window.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeGraph() {
-    // 创建初始数据集（全部节点和边）
     currentNodesDataset = new vis.DataSet(Array.from(originalNodesMap.values()));
     currentEdgesDataset = new vis.DataSet(originalEdgesArray);
 
@@ -520,7 +548,6 @@ function initializeGraph() {
 
     currentNetworkInstance = new vis.Network(container, data, options);
 
-    // 设置节点点击事件
     currentNetworkInstance.on("selectNode", function(params) {
         const nodeId = params.nodes[0];
         if (nodeId) {
@@ -532,11 +559,11 @@ function initializeGraph() {
         hideNodeDetails();
     });
 
-    // 监听物理引擎稳定事件
     currentNetworkInstance.on("stabilizationIterationsDone", function () {
         console.log("Layout stabilization done. Disabling physics.");
         currentNetworkInstance.setOptions({ physics: { enabled: false } });
         updateStatisticsPanel();
+        showLoadingIndicator(false);
     });
 }
 
@@ -630,9 +657,12 @@ function showPercentage(percent) {
 
     console.log(`Showing ${percent}%: ${relevantNodes.length} nodes, ${relevantEdges.length} edges`);
 
+    currentNodesDataset = new vis.DataSet(relevantNodes);
+    currentEdgesDataset = new vis.DataSet(relevantEdges);
+
     currentNetworkInstance.setData({
-        nodes: new vis.DataSet(relevantNodes),
-        edges: new vis.DataSet(relevantEdges)
+        nodes: currentNodesDataset,
+        edges: currentEdgesDataset
     });
 
     setTimeout(() => {
@@ -678,7 +708,7 @@ function showByLabel(displayLabel) {
         selectedNodeIds.has(node.id)
     );
 
-    console.log(`Showing by label '${displayLabel}' (original: ${originalLabel}): ${relevantNodes.length} nodes, ${relevantEdges.length} edges`);
+    console.log(`Showing by label '${displayLabel}': ${relevantNodes.length} nodes, ${relevantEdges.length} edges`);
 
     if (relevantNodes.length === 0) {
         alert(`没有找到类型为 "${displayLabel}" 的节点。`);
@@ -686,9 +716,12 @@ function showByLabel(displayLabel) {
         return;
     }
 
+    currentNodesDataset = new vis.DataSet(relevantNodes);
+    currentEdgesDataset = new vis.DataSet(relevantEdges);
+
     currentNetworkInstance.setData({
-        nodes: new vis.DataSet(relevantNodes),
-        edges: new vis.DataSet(relevantEdges)
+        nodes: currentNodesDataset,
+        edges: currentEdgesDataset
     });
 
     setTimeout(() => {
@@ -699,7 +732,7 @@ function showByLabel(displayLabel) {
     }, 100);
 }
 
-// --- 最小化/恢复控制界面函数 ---
+// --- 控制界面函数 ---
 function toggleControls() {
     const controlsDiv = document.querySelector('.controls');
     if (controlsDiv) {
@@ -715,6 +748,11 @@ function toggleControls() {
 }
 
 function createRestoreButton() {
+    const existingRestoreButton = document.getElementById('restore-controls-btn');
+    if (existingRestoreButton) {
+        existingRestoreButton.remove();
+    }
+
     const restoreButton = document.createElement('button');
     restoreButton.id = 'restore-controls-btn';
     restoreButton.textContent = '恢复控制';
