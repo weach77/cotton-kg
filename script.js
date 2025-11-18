@@ -2,8 +2,6 @@
 // 从概念定义中获取节点颜色和标签映射
 const conceptDefinitions = {
     "姓名": { color: "#FF9999", displayLabel: "姓名" },
-    // "年龄": { color: "#99CCFF", displayLabel: "年龄" }, // 移除
-    // "性别": { color: "#99FF99", displayLabel: "性别" }, // 移除
     "单位": { color: "#99FF99", displayLabel: "单位" },
     "地区": { color: "#FFCC99", displayLabel: "地区" },
     "研究领域": { color: "#99FFCC", displayLabel: "研究领域" }
@@ -32,71 +30,480 @@ let currentEdgesDataset = null;
 // 控制界面状态
 let controlsVisible = true;
 
-// 从 data.json 加载数据
-fetch('data.json')
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok ' + response.statusText);
+// --- 初始化UI元素 ---
+function initializeUIElements() {
+    createLoadingIndicator();
+    createStatisticsPanel();
+    createNodeDetailsPanel();
+}
+
+// --- 加载指示器 ---
+function createLoadingIndicator() {
+    const loader = document.createElement('div');
+    loader.id = 'loading-indicator';
+    loader.innerHTML = `
+        <div class="loader-content">
+            <div class="spinner"></div>
+            <p>正在加载数据...</p>
+        </div>
+    `;
+    loader.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 999;
+        font-size: 18px;
+        color: white;
+    `;
+    
+    const style = document.createElement('style');
+    style.textContent = `
+        .loader-content {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
         }
-        return response.json();
-    })
-    .then(neo4jData => {
-        console.log("Raw data loaded:", neo4jData);
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    `;
+    document.head.appendChild(style);
+    document.body.appendChild(loader);
+}
 
-        // 解析数据
-        neo4jData.forEach(item => {
-            const nodeN = item.n;
-            const rel = item.r;
-            const nodeM = item.m;
+function showLoadingIndicator(show) {
+    const loader = document.getElementById('loading-indicator');
+    if (loader) {
+        loader.style.display = show ? 'flex' : 'none';
+    }
+}
 
-            // --- 处理节点 N ---
-            if (!originalNodesMap.has(nodeN.elementId)) {
-                const nodeLabel = nodeN.labels[0]; // 这是原始标签，如 "姓名", "年龄"
-                const config = conceptDefinitions[nodeLabel] || { color: "#CCCCCC", displayLabel: nodeLabel };
-                originalNodesMap.set(nodeN.elementId, {
-                    id: nodeN.elementId,
-                    label: nodeN.properties.value || nodeN.elementId, // 新数据使用 properties.value
-                    color: config.color,
-                    title: `ID: ${nodeN.elementId}\n类型: ${config.displayLabel}\n值: ${nodeN.properties.value || 'N/A'}\n属性: ${JSON.stringify(nodeN.properties, null, 2) || 'N/A'}`
-                });
-                allNodeIds.push(nodeN.elementId);
-            }
+// --- 统计面板 ---
+function createStatisticsPanel() {
+    const panel = document.createElement('div');
+    panel.id = 'statistics-panel';
+    panel.innerHTML = `
+        <div class="stats-header">
+            <h3>图谱统计</h3>
+            <button class="close-btn" onclick="toggleStatisticsPanel()">−</button>
+        </div>
+        <div class="stats-content">
+            <div class="stat-item">
+                <span class="stat-label">总节点数:</span>
+                <span class="stat-value" id="total-nodes">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">总关系数:</span>
+                <span class="stat-value" id="total-edges">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">当前节点数:</span>
+                <span class="stat-value" id="current-nodes">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">当前关系数:</span>
+                <span class="stat-value" id="current-edges">0</span>
+            </div>
+            <hr style="margin: 10px 0;">
+            <div class="stat-breakdown">
+                <h4>节点类型分布</h4>
+                <div id="node-type-stats"></div>
+            </div>
+        </div>
+    `;
+    panel.style.cssText = `
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        width: 250px;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        z-index: 100;
+        font-size: 13px;
+        font-family: Arial, sans-serif;
+    `;
 
-            // --- 处理节点 M ---
-            if (!originalNodesMap.has(nodeM.elementId)) {
-                const nodeLabel = nodeM.labels[0]; // 这是原始标签，如 "单位", "研究领域"
-                const config = conceptDefinitions[nodeLabel] || { color: "#CCCCCC", displayLabel: nodeLabel };
-                originalNodesMap.set(nodeM.elementId, {
-                    id: nodeM.elementId,
-                    label: nodeM.properties.value || nodeM.elementId, // 新数据使用 properties.value
-                    color: config.color,
-                    title: `ID: ${nodeM.elementId}\n类型: ${config.displayLabel}\n值: ${nodeM.properties.value || 'N/A'}\n属性: ${JSON.stringify(nodeM.properties, null, 2) || 'N/A'}`
-                });
-                allNodeIds.push(nodeM.elementId);
-            }
+    const style = document.createElement('style');
+    style.textContent = `
+        #statistics-panel {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .stats-header {
+            background: #f0f0f0;
+            padding: 8px 12px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .stats-header h3 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .close-btn:hover {
+            color: #000;
+        }
+        .stats-content {
+            padding: 10px;
+        }
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .stat-label {
+            font-weight: bold;
+            color: #333;
+        }
+        .stat-value {
+            color: #0066cc;
+            font-weight: bold;
+        }
+        .stat-breakdown {
+            margin-top: 10px;
+        }
+        .stat-breakdown h4 {
+            margin: 5px 0;
+            font-size: 12px;
+            color: #333;
+        }
+        .type-stat {
+            padding: 3px 0;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .type-color {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+    `;
+    document.head.appendChild(style);
+    document.body.appendChild(panel);
+}
 
-            // --- 添加边 ---
-            const relConfig = relationDefinitions[rel.type] || { displayLabel: rel.type };
-            originalEdgesArray.push({
-                from: nodeN.elementId,
-                to: nodeM.elementId,
-                label: relConfig.displayLabel,
-                arrows: 'to',
-                title: `关系: ${relConfig.displayLabel}\nID: ${rel.elementId}\n属性: ${JSON.stringify(rel.properties, null, 2) || 'N/A'}`
-            });
-        });
+function updateStatisticsPanel() {
+    const totalNodes = originalNodesMap.size;
+    const totalEdges = originalEdgesArray.length;
+    const currentNodes = currentNodesDataset ? currentNodesDataset.length : 0;
+    const currentEdges = currentEdgesDataset ? currentEdgesDataset.length : 0;
 
-        console.log("All Node IDs:", allNodeIds);
-        console.log("Original Nodes Count:", originalNodesMap.size);
-        console.log("Original Edges Count:", originalEdgesArray.length);
+    document.getElementById('total-nodes').textContent = totalNodes;
+    document.getElementById('total-edges').textContent = totalEdges;
+    document.getElementById('current-nodes').textContent = currentNodes;
+    document.getElementById('current-edges').textContent = currentEdges;
 
-        // 初始化图谱，显示全部
-        initializeGraph();
-    })
-    .catch(error => {
-        console.error('Error fetching or processing ', error);
-        document.getElementById('mynetwork').innerHTML = `<p style="color: red; text-align: center;">加载数据失败: ${error.message}</p>`;
+    // 更新节点类型分布
+    const typeStats = {};
+    originalNodesMap.forEach((node) => {
+        const type = node.title.match(/类型: ([^\n]+)/)?.[1] || '未知';
+        typeStats[type] = (typeStats[type] || 0) + 1;
     });
+
+    const typeStatsDiv = document.getElementById('node-type-stats');
+    typeStatsDiv.innerHTML = '';
+    for (const [type, count] of Object.entries(typeStats)) {
+        const config = Object.values(conceptDefinitions).find(c => c.displayLabel === type) || { color: '#CCCCCC' };
+        const typeDiv = document.createElement('div');
+        typeDiv.className = 'type-stat';
+        typeDiv.innerHTML = `
+            <span>
+                <span class="type-color" style="background-color: ${config.color};"></span>
+                <span>${type}</span>
+            </span>
+            <span>${count}</span>
+        `;
+        typeStatsDiv.appendChild(typeDiv);
+    }
+}
+
+function toggleStatisticsPanel() {
+    const panel = document.getElementById('statistics-panel');
+    const content = panel.querySelector('.stats-content');
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        panel.querySelector('.close-btn').textContent = '−';
+    } else {
+        content.style.display = 'none';
+        panel.querySelector('.close-btn').textContent = '+';
+    }
+}
+
+// --- 节点详情面板 ---
+function createNodeDetailsPanel() {
+    const panel = document.createElement('div');
+    panel.id = 'node-details-panel';
+    panel.innerHTML = `
+        <div class="details-header">
+            <h3>节点详情</h3>
+            <button class="close-btn" onclick="hideNodeDetails()">✕</button>
+        </div>
+        <div class="details-content" id="details-content">
+            <p style="color: #999; text-align: center;">选择图谱中的节点查看详情</p>
+        </div>
+    `;
+    panel.style.cssText = `
+        position: fixed;
+        bottom: 10px;
+        right: 10px;
+        width: 320px;
+        max-height: 400px;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        z-index: 100;
+        font-size: 13px;
+        font-family: Arial, sans-serif;
+        display: none;
+    `;
+
+    const style = document.createElement('style');
+    style.textContent = `
+        #node-details-panel {
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .details-header {
+            background: #f0f0f0;
+            padding: 10px 12px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .details-header h3 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .details-content {
+            padding: 12px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .detail-row {
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 3px;
+        }
+        .detail-value {
+            color: #666;
+            word-break: break-all;
+            background: #f9f9f9;
+            padding: 5px;
+            border-radius: 3px;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .relation-list {
+            font-size: 12px;
+            color: #666;
+        }
+        .relation-item {
+            padding: 3px 0;
+            padding-left: 15px;
+        }
+    `;
+    document.head.appendChild(style);
+    document.body.appendChild(panel);
+}
+
+function showNodeDetails(nodeId) {
+    const node = originalNodesMap.get(nodeId);
+    if (!node) return;
+
+    // 查找与该节点相关的边
+    const relatedEdges = originalEdgesArray.filter(edge =>
+        edge.from === nodeId || edge.to === nodeId
+    );
+
+    const detailsContent = document.getElementById('details-content');
+    let html = `
+        <div class="detail-row">
+            <div class="detail-label">节点名称</div>
+            <div class="detail-value">${escapeHtml(node.label)}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">节点ID</div>
+            <div class="detail-value">${escapeHtml(node.id)}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">节点类型</div>
+            <div class="detail-value">${node.title.match(/类型: ([^\n]+)/)?.[1] || '未知'}</div>
+        </div>
+    `;
+
+    if (relatedEdges.length > 0) {
+        html += `
+            <div class="detail-row">
+                <div class="detail-label">相关关系 (${relatedEdges.length})</div>
+                <div class="relation-list">
+        `;
+        relatedEdges.forEach(edge => {
+            const relatedNode = originalNodesMap.get(edge.from === nodeId ? edge.to : edge.from);
+            const direction = edge.from === nodeId ? '→' : '←';
+            html += `
+                <div class="relation-item">
+                    ${direction} <strong>${edge.label}</strong>: ${escapeHtml(relatedNode?.label || '未知')}
+                </div>
+            `;
+        });
+        html += `
+                </div>
+            </div>
+        `;
+    }
+
+    detailsContent.innerHTML = html;
+
+    // 显示面板
+    const panel = document.getElementById('node-details-panel');
+    panel.style.display = 'block';
+}
+
+function hideNodeDetails() {
+    const panel = document.getElementById('node-details-panel');
+    if (panel) {
+        panel.style.display = 'none';
+    }
+}
+
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+// --- 页面加载 ---
+window.addEventListener('DOMContentLoaded', function() {
+    initializeUIElements();
+    
+    // 从 data.json 加载数据
+    fetch('data.json')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok ' + response.statusText);
+            }
+            return response.json();
+        })
+        .then(neo4jData => {
+            console.log("Raw data loaded:", neo4jData);
+
+            // 解析数据
+            neo4jData.forEach(item => {
+                const nodeN = item.n;
+                const rel = item.r;
+                const nodeM = item.m;
+
+                // --- 处理节点 N ---
+                if (!originalNodesMap.has(nodeN.elementId)) {
+                    const nodeLabel = nodeN.labels[0];
+                    const config = conceptDefinitions[nodeLabel] || { color: "#CCCCCC", displayLabel: nodeLabel };
+                    originalNodesMap.set(nodeN.elementId, {
+                        id: nodeN.elementId,
+                        label: nodeN.properties.value || nodeN.elementId,
+                        color: config.color,
+                        title: `ID: ${nodeN.elementId}\n类型: ${config.displayLabel}\n值: ${nodeN.properties.value || 'N/A'}\n属性: ${JSON.stringify(nodeN.properties, null, 2) || 'N/A'}`
+                    });
+                    allNodeIds.push(nodeN.elementId);
+                }
+
+                // --- 处理节点 M ---
+                if (!originalNodesMap.has(nodeM.elementId)) {
+                    const nodeLabel = nodeM.labels[0];
+                    const config = conceptDefinitions[nodeLabel] || { color: "#CCCCCC", displayLabel: nodeLabel };
+                    originalNodesMap.set(nodeM.elementId, {
+                        id: nodeM.elementId,
+                        label: nodeM.properties.value || nodeM.elementId,
+                        color: config.color,
+                        title: `ID: ${nodeM.elementId}\n类型: ${config.displayLabel}\n值: ${nodeM.properties.value || 'N/A'}\n属性: ${JSON.stringify(nodeM.properties, null, 2) || 'N/A'}`
+                    });
+                    allNodeIds.push(nodeM.elementId);
+                }
+
+                // --- 添加边 ---
+                const relConfig = relationDefinitions[rel.type] || { displayLabel: rel.type };
+                originalEdgesArray.push({
+                    from: nodeN.elementId,
+                    to: nodeM.elementId,
+                    label: relConfig.displayLabel,
+                    arrows: 'to',
+                    title: `关系: ${relConfig.displayLabel}\nID: ${rel.elementId}\n属性: ${JSON.stringify(rel.properties, null, 2) || 'N/A'}`
+                });
+            });
+
+            console.log("All Node IDs:", allNodeIds);
+            console.log("Original Nodes Count:", originalNodesMap.size);
+            console.log("Original Edges Count:", originalEdgesArray.length);
+
+            // 初始化图谱
+            initializeGraph();
+            showLoadingIndicator(false);
+        })
+        .catch(error => {
+            console.error('Error fetching or processing:', error);
+            showLoadingIndicator(false);
+            document.getElementById('mynetwork').innerHTML = `<p style="color: red; text-align: center; padding: 20px;">加载数据失败: ${error.message}</p>`;
+        });
+});
 
 function initializeGraph() {
     // 创建初始数据集（全部节点和边）
@@ -113,10 +520,23 @@ function initializeGraph() {
 
     currentNetworkInstance = new vis.Network(container, data, options);
 
-    // 监听物理引擎稳定事件，稳定后禁用物理引擎
+    // 设置节点点击事件
+    currentNetworkInstance.on("selectNode", function(params) {
+        const nodeId = params.nodes[0];
+        if (nodeId) {
+            showNodeDetails(nodeId);
+        }
+    });
+
+    currentNetworkInstance.on("deselectNode", function() {
+        hideNodeDetails();
+    });
+
+    // 监听物理引擎稳定事件
     currentNetworkInstance.on("stabilizationIterationsDone", function () {
         console.log("Layout stabilization done. Disabling physics.");
         currentNetworkInstance.setOptions({ physics: { enabled: false } });
+        updateStatisticsPanel();
     });
 }
 
@@ -182,7 +602,7 @@ function getVisOptions() {
             selectConnectedEdges: true,
             dragNodes: true,
             dragView: true,
-            zoomView: true // 保持全局滚轮缩放
+            zoomView: true
         },
         layout: {
             improvedLayout: true
@@ -193,6 +613,8 @@ function getVisOptions() {
 // --- 按比例展示函数 ---
 function showPercentage(percent) {
     if (!currentNetworkInstance || allNodeIds.length === 0) return;
+
+    showLoadingIndicator(true);
 
     const numNodesToShow = Math.floor((percent / 100) * allNodeIds.length);
     const shuffledIds = [...allNodeIds].sort(() => 0.5 - Math.random());
@@ -212,15 +634,21 @@ function showPercentage(percent) {
         nodes: new vis.DataSet(relevantNodes),
         edges: new vis.DataSet(relevantEdges)
     });
-    currentNetworkInstance.fit();
-    currentNetworkInstance.setOptions({ physics: getVisOptions().physics });
+
+    setTimeout(() => {
+        currentNetworkInstance.fit();
+        currentNetworkInstance.setOptions({ physics: getVisOptions().physics });
+        updateStatisticsPanel();
+        showLoadingIndicator(false);
+    }, 100);
 }
 
-// --- 分类展示函数 (根据新本体调整，移除年龄和性别) ---
+// --- 分类展示函数 ---
 function showByLabel(displayLabel) {
     if (!currentNetworkInstance) return;
 
-    // 修复：查找原始标签 (label) 对应的 displayLabel
+    showLoadingIndicator(true);
+
     let originalLabel = null;
     for (const [label, config] of Object.entries(conceptDefinitions)) {
         if (config.displayLabel === displayLabel) {
@@ -229,31 +657,23 @@ function showByLabel(displayLabel) {
         }
     }
 
-    // 如果没有在 displayLabel 中找到，尝试直接用传入的 displayLabel 作为原始标签
-    // 这对于原始标签和显示标签相同的情况（如 "单位", "研究领域" 等）很有用
     if (originalLabel === null) {
         originalLabel = displayLabel;
     }
 
     console.log(`Looking for original label: ${originalLabel}, displayLabel: ${displayLabel}`);
 
-    // 找到指定原始标签的节点ID
     const selectedNodeIds = new Set();
     originalNodesMap.forEach((node, id) => {
-        // 检查节点的 title 是否包含目标类型
-        // 由于 title 是根据 conceptDefinitions[原始标签].displayLabel 生成的
-        // 我们需要查找的 displayLabel 必须与 conceptDefinitions 中定义的 displayLabel 一致
         if (node.title.includes(`类型: ${displayLabel}`)) {
-             selectedNodeIds.add(id);
+            selectedNodeIds.add(id);
         }
     });
 
-    // 找到连接这些节点的边
     const relevantEdges = originalEdgesArray.filter(edge =>
         selectedNodeIds.has(edge.from) && selectedNodeIds.has(edge.to)
     );
 
-    // 获取这些边涉及的节点
     const relevantNodes = Array.from(originalNodesMap.values()).filter(node =>
         selectedNodeIds.has(node.id)
     );
@@ -262,54 +682,67 @@ function showByLabel(displayLabel) {
 
     if (relevantNodes.length === 0) {
         alert(`没有找到类型为 "${displayLabel}" 的节点。`);
-        return; // 如果没有节点，不更新图谱
+        showLoadingIndicator(false);
+        return;
     }
 
-    // 更新图谱数据
     currentNetworkInstance.setData({
         nodes: new vis.DataSet(relevantNodes),
         edges: new vis.DataSet(relevantEdges)
     });
-    currentNetworkInstance.fit();
-    currentNetworkInstance.setOptions({ physics: getVisOptions().physics });
+
+    setTimeout(() => {
+        currentNetworkInstance.fit();
+        currentNetworkInstance.setOptions({ physics: getVisOptions().physics });
+        updateStatisticsPanel();
+        showLoadingIndicator(false);
+    }, 100);
 }
 
-// --- 新增：最小化/恢复控制界面函数 ---
+// --- 最小化/恢复控制界面函数 ---
 function toggleControls() {
     const controlsDiv = document.querySelector('.controls');
     if (controlsDiv) {
         if (controlsVisible) {
-            // 当前显示，需要隐藏
             controlsDiv.style.display = 'none';
-            // 创建一个“恢复”按钮
             createRestoreButton();
         } else {
-            // 当前隐藏，需要显示
             controlsDiv.style.display = 'block';
-            // 移除“恢复”按钮
             removeRestoreButton();
         }
-        controlsVisible = !controlsVisible; // 切换状态
+        controlsVisible = !controlsVisible;
     }
 }
 
-// 创建恢复按钮
 function createRestoreButton() {
     const restoreButton = document.createElement('button');
     restoreButton.id = 'restore-controls-btn';
-    restoreButton.textContent = '恢复';
-    restoreButton.style.position = 'absolute';
-    restoreButton.style.top = '10px';
-    restoreButton.style.right = '10px';
-    restoreButton.style.zIndex = '11'; // 确保在图层上方
-    restoreButton.style.padding = '5px 10px';
-    restoreButton.style.fontSize = '12px';
-    restoreButton.onclick = toggleControls; // 点击恢复
+    restoreButton.textContent = '恢复控制';
+    restoreButton.style.cssText = `
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 101;
+        padding: 8px 15px;
+        font-size: 12px;
+        background: #0066cc;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    `;
+    restoreButton.onmouseover = function() {
+        this.style.background = '#0052a3';
+    };
+    restoreButton.onmouseout = function() {
+        this.style.background = '#0066cc';
+    };
+    restoreButton.onclick = toggleControls;
 
     document.body.appendChild(restoreButton);
 }
 
-// 移除恢复按钮
 function removeRestoreButton() {
     const existingRestoreButton = document.getElementById('restore-controls-btn');
     if (existingRestoreButton) {
@@ -323,8 +756,3 @@ function fitToScreen() {
         currentNetworkInstance.fit();
     }
 }
-
-// 页面加载完成后初始化按钮文本
-window.addEventListener('load', function() {
-    // 按钮事件监听器在HTML中定义，这里无需再次添加
-});
